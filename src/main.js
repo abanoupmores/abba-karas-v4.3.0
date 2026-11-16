@@ -5,6 +5,8 @@ import QRCode from 'qrcode';
 import {Html5Qrcode} from 'html5-qrcode';
 import {Capacitor} from '@capacitor/core';
 import {LocalNotifications as LN} from '@capacitor/local-notifications';
+import {Share} from '@capacitor/share';
+import {Filesystem,Directory} from '@capacitor/filesystem';
 import {CFG,VERSES,APP_VERSION} from './config.js';
 import {BG,setBg,getBgKey,preview,splashBg} from './bg.js';
 import {installExt,startExt} from './ext/index.js';
@@ -219,7 +221,7 @@ function render(f){
  if(!f&&a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName))return;
  if($('#md').style.display==='flex'&&!f)return;
  document.body.dataset.page=page;
- document.body.classList.toggle('custom-bg',!!localStorage.getItem('bgk'));
+ document.body.classList.toggle('custom-bg',!!getBgKey());
  const P=PG[page]||PG.home,el=$('#app'),y=el.scrollTop;
  const title=typeof P.t==='function'?P.t(arg):P.t,right=P.act?P.act(arg):'';
  el.innerHTML=`<div class="wrap">${P.bare?'':`<header class="top"><span style="width:42px">${right}</span><h1>${title}</h1><button class="ib" onclick="back()">${ic('back')}</button></header>`}${P.v(arg)}</div>`;
@@ -252,7 +254,7 @@ PG.member={t:'بيانات المخدوم',act:id=>`<button class="ib" onclick="
  const s=stat(x);
  return pg(`<div class="card" style="text-align:center">${av(x,'xl').replace('class="av xl"','class="av xl" style="margin:0 auto 8px"')}<h2 style="margin:6px 0">${esc(x.name)}</h2><span class="bdg">${chName(x.choir)}</span>
  <div class="li" style="margin-top:12px"><span class="ch">${ic('phone')}</span><span class="t" style="text-align:right">${phoneShow(x.phone)}</span></div>
- <div class="li"><span class="ch">${ic('cake')}</span><span class="t" style="text-align:right">${x.birth||'—'}</span></div>
+ <div class="li"><span class="ch">${ic('cake')}</span><span class="t" style="text-align:right">${x.birth||'—'}</span></div>${bdBtn(x)}
  <div class="row sp" style="padding-top:12px"><div style="text-align:right"><b>نسبة الحضور</b><div class="s">${s.a} من ${s.t} بروفة</div></div>${ring(s.p)}</div>
  <div class="row sp" style="padding-top:8px"><div style="text-align:right"><b>رمز الحضور</b><div class="s">امسح الكود لتسجيل الحضور</div></div>${qrImg('KM|'+x.id,'qr sm')}</div>
  <div style="height:10px"></div><button class="btn" onclick="mfull('${x.id}')">عرض كامل البيانات</button><div style="height:8px"></div><button class="btn o" onclick="go('history','${x.id}')">${ic('hist')} سجل الحضور والغياب</button></div>${accCard(x)}${welcomeCard(x)}`);
@@ -374,7 +376,7 @@ PG.notifs={t:'الإشعارات',act:()=>isS()?`<button class="ib" onclick="nf(
  const N=[...S.notifs].sort((a,b)=>b.at-a.at).slice(0,40);
  if(!isS())return pg(`<div class="card">${N.map(nrow).join('')||'<div class="s">مفيش إشعارات</div>'}</div>`);
  const bd=S.members.map(x=>({x,b:nextBd(x.birth)})).filter(o=>o.b&&o.b.days<=14).sort((a,b)=>a.b.days-b.b.days),w=weekSummary();
- return pg(`<div class="card"><h3>🎂 أعياد ميلاد قريبة</h3>${bd.map(o=>{const s=stat(o.x);return `<div class="li">${av(o.x)}<div class="t"><b>عيد ميلاد ${esc(o.x.name)}</b><span class="s">${o.b.days===0?'النهارده 🎉':'بعد '+o.b.days+' يوم'} · ${o.b.age} سنة · نسبة الحضور ${s.p===null?'—':s.p+'%'}${s.p!==null&&s.p<C().low?' (محتاج افتقاد)':''}</span></div><a class="btn sm o" href="${wa(o.x.phone)}" target="_blank">واتساب</a></div>`}).join('')||'<div class="s">مفيش في الأسبوعين الجايين</div>'}</div>
+ return pg(`<div class="card"><h3>🎂 أعياد ميلاد قريبة</h3>${bd.map(o=>{const s=stat(o.x);return `<div class="li">${av(o.x)}<div class="t"><b>عيد ميلاد ${esc(o.x.name)}</b><span class="s">${o.b.days===0?'النهارده 🎉':'بعد '+o.b.days+' يوم'} · ${o.b.age} سنة · نسبة الحضور ${s.p===null?'—':s.p+'%'}${s.p!==null&&s.p<C().low?' (محتاج افتقاد)':''}</span></div><div class="row w" style="gap:6px;flex:none"><button class="btn sm g" onclick="bdGreet('${o.x.id}')">🎂 تهنئة</button><a class="btn sm o" href="${wa(o.x.phone)}" target="_blank">واتساب</a></div></div>`}).join('')||'<div class="s">مفيش في الأسبوعين الجايين</div>'}</div>
  <div class="card"><h3>📊 تقرير الثلاثاء</h3><div class="s">متوسط الحضور ${w.avg}% · ${w.low.length} محتاجين افتقاد</div><div style="height:8px"></div><button class="btn sm" onclick="go('report')">فتح التقرير</button></div>
  <div class="card"><h3>الرسائل المُرسلة</h3>${N.map(nrow).join('')||'<div class="s">لسه</div>'}</div>`);
 }};
@@ -443,7 +445,7 @@ window.sc=async()=>{const d={};['max','step','zero','open','close','concert','so
  try{await setDoc(doc(db,'config','main'),d,{merge:true});toast('تم الحفظ')}catch(e){toast('فشل الحفظ',0)}};
 
 // ---------- الخلفيات ----------
-PG.bgs={t:'الخلفية',v:()=>pg(`<div class="grid2">${Object.keys(BG).map(k=>`<button class="bgc ${getBgKey()===k?'on':''}" onclick="pickBg('${k}')"><div class="pv">${preview(k)}</div><span>${BG[k].n}${getBgKey()===k?' ✓':''}</span></button>`).join('')}</div>`)};
+PG.bgs={t:'الخلفية',v:()=>{const cur=getBgKey();return pg(`<div class="grid2">${[['','تلقائي (خلفية لكل صفحة)'],...Object.keys(BG).map(k=>[k,BG[k].n])].map(([k,n])=>`<button class="bgc ${cur===k?'on':''}" onclick="pickBg('${k}')"><div class="pv">${preview(k)}</div><span>${n}${cur===k?' ✓':''}</span></button>`).join('')}</div>`)}};
 window.pickBg=k=>{setBg(k);render(2)};
 
 
@@ -507,6 +509,62 @@ window.rstPw=async id=>{const m=S.members.find(x=>x.id===id);if(!m||!m.uid)retur
 function accCard(x){if(!isS())return '';
  const R=(S.reqs||[]).filter(r=>r.memberId===x.id).sort((a,b)=>b.createdAt-a.createdAt).slice(0,3),lbl={pending:'⏳ منتظر التنفيذ',done:'✅ تم',failed:'⚠️ فشل',skipped:'ℹ️ تم جزئيًا'},tn={resetPassword:'إعادة تعيين الباسورد',changePhone:'تحديث رقم الدخول'};
  return `<div class="card" style="margin-top:12px"><h3>حساب الدخول</h3>${x.uid?`<div class="s">✅ الحساب مفعّل · اسم المستخدم: ${phoneShow(x.phone)}</div><div style="height:8px"></div><button class="btn sm o" onclick="rstPw('${x.id}')">إعادة تعيين الباسورد (${DEFAULT_PW})</button>`:`<div class="s">لا يوجد حساب دخول لهذا المخدوم.</div><div style="height:8px"></div><button class="btn g" onclick="actAcc('${x.id}')">تفعيل حساب المخدوم</button>`}${R.map(r=>`<div class="s" style="margin-top:6px">${tn[r.type]||r.type}: ${lbl[r.status]||r.status}${r.message?' — '+esc(r.message):''}</div>`).join('')}</div>`}
+
+// ----- تهنئة عيد الميلاد: صورة المخدوم في برواز "Happy Birthday" وتتبعت واتساب -----
+const loadImg=src=>new Promise(res=>{if(!src)return res(null);const i=new Image();if(/^https?:/.test(src))i.crossOrigin='anonymous';i.onload=()=>res(i);i.onerror=()=>res(null);i.src=src});
+const rr=(g,x,y,w,h,r)=>{g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath()};
+const goldG=(g,x0,y0,x1,y1)=>{const k=g.createLinearGradient(x0,y0,x1,y1);[[0,'#f7e3a1'],[.3,'#d9b45c'],[.55,'#a67c25'],[.8,'#e6c26f'],[1,'#8c651d']].forEach(([o,c])=>k.addColorStop(o,c));return k};
+async function bdCard(x,age){
+ const W=1080,H=1350,c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');
+ g.imageSmoothingQuality='high';
+ let k=g.createLinearGradient(0,0,W,H);k.addColorStop(0,'#3d202b');k.addColorStop(.55,'#5a3340');k.addColorStop(1,'#1b2a52');g.fillStyle=k;g.fillRect(0,0,W,H);
+ k=g.createRadialGradient(540,640,60,540,640,700);k.addColorStop(0,'rgba(255,214,130,.35)');k.addColorStop(1,'rgba(255,214,130,0)');g.fillStyle=k;g.fillRect(0,0,W,H);
+ let seed=[...String(x.id)].reduce((a,ch)=>a*31+ch.charCodeAt(0)|0,7);const rnd=()=>{seed=seed*1664525+1013904223|0;return((seed>>>0)%10000)/10000};
+ const cols=['#f6c453','#e8788a','#7fc8f8','#9be3a6','#fff'];
+ for(let i=0;i<90;i++){g.save();g.translate(rnd()*W,rnd()*H);g.rotate(rnd()*6.28);g.fillStyle=cols[i%5];g.globalAlpha=.55+rnd()*.4;g.fillRect(0,0,10+rnd()*14,5+rnd()*7);g.restore()}
+ [[120,170,'#e8788a'],[210,100,'#f6c453'],[960,180,'#7fc8f8'],[870,105,'#9be3a6']].forEach(([bx,by,col])=>{g.strokeStyle='rgba(255,255,255,.5)';g.lineWidth=3;g.beginPath();g.moveTo(bx,by+62);g.quadraticCurveTo(bx+14,by+120,bx-6,by+170);g.stroke();
+  const rg=g.createRadialGradient(bx-18,by-20,6,bx,by,66);rg.addColorStop(0,'#fff');rg.addColorStop(.25,col);rg.addColorStop(1,'rgba(0,0,0,.55)');g.fillStyle=rg;g.beginPath();g.ellipse(bx,by,52,64,0,0,6.28);g.fill()});
+ // برواز مزخرف
+ g.save();g.shadowColor='rgba(0,0,0,.55)';g.shadowBlur=45;g.shadowOffsetY=22;rr(g,230,350,620,620,34);g.fillStyle=goldG(g,230,350,850,970);g.fill();g.restore();
+ rr(g,246,366,588,588,24);g.strokeStyle='rgba(60,35,10,.55)';g.lineWidth=4;g.stroke();
+ rr(g,260,380,560,560,16);g.fillStyle='#f6ecd6';g.fill();
+ const px=278,py=398,ps=524,im=await loadImg(x.photo);
+ g.save();rr(g,px,py,ps,ps,10);g.clip();
+ if(im){const sq=Math.min(im.width,im.height);g.drawImage(im,(im.width-sq)/2,(im.height-sq)/2,sq,sq,px,py,ps,ps)}
+ else{g.fillStyle='#79535b';g.fillRect(px,py,ps,ps);g.fillStyle='#fff';g.font='700 260px system-ui, Tahoma, sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(((x.name||'؟')[0]),px+ps/2,py+ps/2+10)}
+ g.restore();rr(g,px,py,ps,ps,10);g.strokeStyle='rgba(120,85,30,.6)';g.lineWidth=3;g.stroke();
+ [[230,350],[850,350],[230,970],[850,970]].forEach(([cx,cy])=>{g.beginPath();g.arc(cx,cy,20,0,6.28);g.fillStyle=goldG(g,cx-20,cy-20,cx+20,cy+20);g.fill();g.strokeStyle='#6b4a14';g.lineWidth=3;g.stroke()});
+ // شريط Happy Birthday على البرواز
+ g.fillStyle='#8c651d';g.beginPath();g.moveTo(120,285);g.lineTo(70,285);g.lineTo(105,335);g.lineTo(70,385);g.lineTo(150,385);g.fill();
+ g.beginPath();g.moveTo(960,285);g.lineTo(1010,285);g.lineTo(975,335);g.lineTo(1010,385);g.lineTo(930,385);g.fill();
+ g.save();g.shadowColor='rgba(0,0,0,.45)';g.shadowBlur=22;g.shadowOffsetY=10;rr(g,110,260,860,140,22);g.fillStyle=goldG(g,110,260,970,400);g.fill();g.restore();
+ rr(g,124,272,832,116,14);g.strokeStyle='rgba(255,246,214,.75)';g.lineWidth=3;g.stroke();
+ g.textAlign='center';g.textBaseline='middle';g.direction='ltr';g.font='italic 700 88px Georgia, "Times New Roman", serif';g.fillStyle='rgba(255,247,222,.65)';g.fillText('Happy Birthday',541,333);g.fillStyle='#4a2514';g.fillText('Happy Birthday',540,331);
+ // الاسم والتهنئة
+ g.direction='rtl';g.fillStyle='#f6e9c8';g.font='700 76px system-ui, Tahoma, "Noto Sans Arabic", sans-serif';g.shadowColor='rgba(0,0,0,.5)';g.shadowBlur=14;g.fillText(x.name||'',540,1062,900);g.shadowBlur=0;
+ g.fillStyle='#e6c987';g.font='500 46px system-ui, Tahoma, "Noto Sans Arabic", sans-serif';g.fillText('كل سنة وإنت طيب 🎂',540,1150);
+ g.fillStyle='rgba(246,233,200,.85)';g.font='400 38px system-ui, Tahoma, "Noto Sans Arabic", sans-serif';g.fillText(age?`${age} سنة — ربنا يفرّح قلبك ويبارك حياتك`:'ربنا يفرّح قلبك ويبارك حياتك',540,1220,900);
+ g.fillStyle='#d9bd85';g.font='700 34px system-ui, Tahoma, "Noto Sans Arabic", sans-serif';g.fillText('كورال الأنبا كاراس',540,1295);
+ rr(g,22,22,W-44,H-44,36);g.strokeStyle=goldG(g,0,0,W,H);g.lineWidth=6;g.stroke();
+ return await new Promise((ok,no)=>c.toBlob(b=>b?ok(b):no(new Error('blob')),'image/png'));
+}
+const blobB64=b=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=no;r.readAsDataURL(b)});
+window.bdGreet=async id=>{
+ const x=S.members.find(m=>m.id===id);if(!x)return;const b=nextBd(x.birth),first=(x.name||'').split(' ')[0];
+ toast('بجهّز صورة التهنئة…');
+ let blob;try{blob=await bdCard(x,b?b.age:null)}catch(e){toast('تعذّر تجهيز الصورة',0);return}
+ const msg=`كل سنة وإنت طيب يا ${first} 🎂🎉\nربنا يفرّح قلبك ويبارك حياتك ✝️`,fname='happy-birthday-'+id+'.png';
+ try{
+  if(Capacitor.isNativePlatform()){
+   const r=await Filesystem.writeFile({path:fname,data:await blobB64(blob),directory:Directory.Cache});
+   await Share.share({title:'تهنئة عيد ميلاد',text:msg,files:[r.uri],dialogTitle:'ابعت التهنئة على واتساب'});return}
+  const f=new File([blob],fname,{type:'image/png'});
+  if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],text:msg});return}
+ }catch(e){if(e&&(e.name==='AbortError'||/cancel/i.test(String(e.message||''))))return}
+ const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=fname;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);
+ window.open(wa(x.phone)+'?text='+encodeURIComponent(msg),'_blank');toast('الصورة اتحفظت — ابعتها في محادثة واتساب اللي اتفتحت');
+};
+const bdBtn=x=>{if(!isS())return '';const b=nextBd(x.birth);return b&&b.days<=14?`<div style="height:10px"></div><button class="btn g" onclick="bdGreet('${x.id}')">🎂 تهنئة بعيد الميلاد${b.days===0?' (النهارده!)':''}</button>`:''};
 // ----- النقاط الترحيبية -----
 const wPts=()=>{const v=C().welcomePts;return Number.isInteger(v)&&v>=0?v:5};
 function welcomeCard(x){if(!isS())return '';
@@ -547,6 +605,13 @@ const X={app,db,auth,$,esc,ic,IC,pg,om,toast,PG,CFG,CH,CHK,chName,av,fmt,fmtD,ag
  qrData:t=>QRCode.toDataURL(t,{width:720,margin:2,color:{dark:'#000000'}})};
 installExt(X);
 
+
+// ----- 3D: ميلان خفيف للأزرار والبلاطات عند اللمس/المرور -----
+(()=>{if(matchMedia('(prefers-reduced-motion:reduce)').matches)return;let t=null;
+ const rst=()=>{if(t){t.style.setProperty('--rx','0deg');t.style.setProperty('--ry','0deg');t=null}};
+ document.addEventListener('pointermove',e=>{const el=e.target.closest&&e.target.closest('.tile,.bgc,.home-intro');if(el!==t)rst();if(!el)return;t=el;const r=el.getBoundingClientRect(),px=(e.clientX-r.left)/r.width-.5,py=(e.clientY-r.top)/r.height-.5;el.style.setProperty('--ry',(px*12).toFixed(1)+'deg');el.style.setProperty('--rx',(-py*12).toFixed(1)+'deg')},{passive:true});
+ document.addEventListener('pointerup',rst);document.addEventListener('pointercancel',rst);document.addEventListener('pointerleave',rst);
+})();
 // ---------- بداية التشغيل ----------
 setBg(getBgKey(),false);
 $('#spbg').innerHTML=splashBg();
