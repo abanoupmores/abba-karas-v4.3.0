@@ -39,6 +39,6 @@ export const increment=INC,deleteField=()=>DEL,getFirestore=()=>({}),initializeA
 let acb=null;window.__login=uid=>{window.__cur=uid?{uid,email:uid+'@t'}:null;acb&&acb(window.__cur)};
 export const getAuth=()=>({get currentUser(){return window.__cur}}),onAuthStateChanged=(a,cb)=>{acb=cb;setTimeout(()=>cb(window.__cur||null),0)},signOut=async()=>{window.__cur=null;acb&&acb(null)},createUserWithEmailAndPassword=async()=>{},signInWithEmailAndPassword=async()=>{};
 export const getStorage=()=>({}),ref=()=>({}),uploadBytesResumable=()=>{throw{code:'storage/bucket-not-found'}},getDownloadURL=async()=>'',deleteObject=async()=>{};
-export const Capacitor={isNativePlatform:()=>false},LocalNotifications={};
+export const Capacitor={isNativePlatform:()=>false},LocalNotifications={},Share={},Filesystem={},Directory={Cache:'CACHE'},registerPlugin=()=>({});
 export default {toDataURL:async t=>'data:image/png;base64,iVBORw0KGgo='};
 export class Html5Qrcode{}
